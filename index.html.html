@@ -1,0 +1,438 @@
+<!-- PASSTHROUGH · recorrido completo
+     Pegar en el panel HTML de CodePen y abrir en "Full Page View" (si no, el navegador bloquea la cámara). -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { font-family: 'Cormorant Garamond', Georgia, serif; color: #fff8e6; }
+  #sub { position: fixed; left: 0; right: 0; bottom: 17vh; margin: 0; padding: 0 1.5rem; z-index: 100010;
+         text-align: center; font-size: clamp(1.2rem, 3vw, 1.9rem); font-style: italic; opacity: 0;
+         transition: opacity 1.6s; text-shadow: 0 0 14px rgba(40,30,10,.6); pointer-events: none; }
+  #sub.on { opacity: 1; }
+  #choices { position: fixed; left: 0; right: 0; bottom: 7vh; z-index: 100011; display: flex;
+             justify-content: center; gap: .9rem; flex-wrap: wrap; }
+  .btn { font: inherit; font-size: 1.15rem; color: #fff8e6; background: rgba(255,248,230,.08);
+         border: 1px solid rgba(255,248,230,.55); border-radius: 999px; padding: .65rem 1.7rem;
+         cursor: pointer; opacity: 0; animation: fadein 1.8s forwards; backdrop-filter: blur(4px); }
+  .btn:hover, .btn:focus-visible { background: rgba(255,248,230,.92); color: #3a2f12; outline: none; }
+  @keyframes fadein { to { opacity: 1; } }
+
+  #hint { position: fixed; top: 4vh; left: 0; right: 0; text-align: center; z-index: 100010; font-size: 1rem;
+          opacity: 0; transition: opacity 2s; pointer-events: none; }
+  #hint.on { opacity: .75; }
+  #go { display: none; position: fixed; right: 6vw; bottom: 24vh; z-index: 100012; width: 78px; height: 78px;
+        border-radius: 50%; border: 1px solid rgba(255,248,230,.6); background: rgba(255,248,230,.12);
+        color: #fff8e6; font: inherit; font-size: 1rem; touch-action: none; user-select: none; }
+  #go.show { display: block; }
+
+  #intro { position: fixed; inset: 0; z-index: 100030; display: flex; flex-direction: column; align-items: center;
+           justify-content: center; gap: 1.4rem; text-align: center; padding: 2rem;
+           background: radial-gradient(circle at 50% 60%, #2a2a1c, #050505 70%); transition: opacity 2s; }
+  #intro.off { opacity: 0; pointer-events: none; }
+  #intro h1 { margin: 0; font-weight: 400; font-size: clamp(2rem, 8vw, 4.5rem); letter-spacing: .3em; padding-left: .3em; }
+  #intro p { margin: 0; max-width: 34ch; opacity: .75; font-size: 1.05rem; line-height: 1.45; }
+
+  #film { position: fixed; inset: 0; z-index: 100040; background: #000; display: none; align-items: center; justify-content: center; }
+  #film.on { display: flex; }
+  #film.fade { opacity: 0; transition: opacity 2.5s; }
+  #vid { width: 100%; height: 100%; object-fit: contain; }
+  #ph { font-family: 'Courier New', monospace; color: #7dffc0; font-size: 1.1rem; animation: glitch .25s steps(2) infinite; }
+
+  #cam { position: fixed; inset: 0; pointer-events: none; z-index: 100045; width: 100%; height: 100%; object-fit: cover;
+         transform: scaleX(-1); opacity: 0; transition: opacity 2.5s; background: #000; }
+  #cam.on { opacity: 1; }
+  #glow { position: fixed; inset: 0; z-index: 100046; opacity: 0; pointer-events: none;
+          background: radial-gradient(circle at 50% 55%, rgba(255,250,235,.95), rgba(255,240,200,.35) 35%, transparent 65%); }
+  #glow.on { animation: dissolve 12s ease-out forwards; }
+  @keyframes dissolve { from { opacity: .9; } to { opacity: 0; } }
+  #flash { position: fixed; inset: 0; z-index: 100050; background: #fff; opacity: 0; pointer-events: none; transition: opacity 1.3s; }
+  #flash.on { opacity: 1; }
+  #again { position: fixed; bottom: 3vh; right: 4vw; z-index: 100055; display: none; background: none; border: 0;
+           color: #fff8e6; opacity: .5; font: inherit; font-size: 1rem; cursor: pointer; text-decoration: underline; }
+  #again.show { display: block; }
+
+  body.glitch .a-canvas { animation: glitch .12s steps(2) infinite; }
+  @keyframes glitch {
+    0% { transform: translate(0,0); filter: none; }
+    25% { transform: translate(-8px,2px); filter: hue-rotate(90deg) saturate(2.5) contrast(1.4); }
+    50% { transform: translate(6px,-3px); filter: hue-rotate(-60deg) saturate(3); }
+    75% { transform: translate(-3px,4px); filter: invert(.15) contrast(1.6); }
+    100% { transform: translate(0,0); filter: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { body.glitch .a-canvas, #ph { animation: none; } }
+  #err { position: fixed; top: 8px; left: 8px; z-index: 1000060; font: 12px monospace; color: #ff8a8a; background: rgba(0,0,0,.7); padding: 6px 10px; }
+  .echo { position: fixed; left: 0; right: 0; bottom: 17vh; margin: 0; padding: 0 1.5rem; z-index: 100009; text-align: center;
+          font-size: clamp(1.2rem, 3vw, 1.9rem); font-style: italic; opacity: 0; transition: opacity 1.8s; filter: blur(2px); pointer-events: none; }
+  #e1 { transform: translateY(-6px) scale(1.02); } #e2 { transform: translateY(-12px) scale(1.04); filter: blur(4px); }
+  #e1.on { opacity: .3; } #e2.on { opacity: .15; }
+</style>
+
+<a-scene fog="type: linear; color: #dcc08a; near: 8; far: 150" renderer="antialias: true" vr-mode-ui="enabled: false">
+  <a-entity dreamcore-sky></a-entity>
+  <a-entity grass-ground></a-entity>
+  <a-entity cables></a-entity>
+
+  <a-entity id="amb" light="type: ambient; color: #8a9bc4; intensity: .7"></a-entity>
+  <a-entity id="dir" light="type: directional; color: #ffcf94; intensity: 1.2" position="0 6 -14"></a-entity>
+
+  <a-entity id="ella" light-being position="0 0 -4"></a-entity>
+  <a-entity id="warm" light="type: point; color: #ffe2a8; intensity: 1.4; distance: 9" position="0 1.1 -3.4"></a-entity>
+  <a-entity id="under" light="type: point; color: #18ff9a; intensity: 0; distance: 14" position="0 .4 -2"></a-entity>
+
+  <a-entity camera look-controls wasd-controls="acceleration: 18" walker position="0 1.6 0"></a-entity>
+</a-scene>
+
+<p id="sub"></p><p class="echo" id="e1"></p><p class="echo" id="e2"></p>
+<div id="err" hidden></div>
+<div id="choices"></div>
+<div id="hint">Camina con W A S D · arrastra para mirar</div>
+<button id="go" type="button">Avanzar</button>
+
+<div id="intro">
+  <h1>PASSTHROUGH</h1>
+  <p>Una experiencia con sonido: mejor con auriculares. Al entrar se te pedirá la cámara para la escena final: quedará encendida, pero la imagen no se muestra hasta el final y no se graba ni se envía.</p>
+  <button class="btn" id="enter" type="button">Entrar</button>
+</div>
+
+<div id="film"><video id="vid" playsinline hidden></video><div id="ph" hidden>[ aquí va el cortometraje ]</div></div>
+<video id="cam" playsinline muted></video>
+<div id="glow"></div>
+<div id="flash"></div>
+<button id="again" type="button">volver al inicio</button>
+
+<script>
+const T = AFRAME.THREE, $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms));
+const sc = () => document.querySelector('a-scene');
+
+/* ====== CONFIGURACIÓN ====== */
+const VIDEO_SRC = '';          // URL del cortometraje (mp4). Vacío = pantalla provisoria de 5 s.
+const VOICE_FILES = {};        // Voces: {'¿Tienes miedo?': 'https://.../miedo.mp3'}
+const USE_TTS = true;          // voz del navegador mientras no tengas tus audios (sin eco)
+const FIGURE_Z = -4;
+
+let state = 'intro';
+
+/* ====== Cielo ====== */
+AFRAME.registerComponent('dreamcore-sky', {
+  init() {
+    const c = document.createElement('canvas'); c.width = 8; c.height = 512;
+    const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 512);
+    [[0,'#4a5f9e'],[.36,'#8d8fb8'],[.47,'#f0c98e'],[.5,'#dcc08a'],[1,'#dcc08a']].forEach(s => g.addColorStop(s[0], s[1]));
+    x.fillStyle = g; x.fillRect(0, 0, 8, 512);
+    this.sky = new T.Mesh(new T.SphereGeometry(500, 32, 16),
+      new T.MeshBasicMaterial({ map: new T.CanvasTexture(c), side: T.BackSide, fog: false }));
+    this.el.setObject3D('sky', this.sky);
+    const s = document.createElement('canvas'); s.width = s.height = 256;
+    const sx = s.getContext('2d'), r = sx.createRadialGradient(128,128,0,128,128,128);
+    r.addColorStop(0,'rgba(255,248,220,1)'); r.addColorStop(.15,'rgba(255,214,140,.7)');
+    r.addColorStop(.5,'rgba(255,170,100,.18)'); r.addColorStop(1,'rgba(255,170,100,0)');
+    sx.fillStyle = r; sx.fillRect(0,0,256,256);
+    this.sun = new T.Sprite(new T.SpriteMaterial({ map: new T.CanvasTexture(s), blending: T.AdditiveBlending, depthWrite: false, fog: false }));
+    this.sun.scale.set(260,260,1); this.sun.position.set(0,30,-320);
+    this.el.setObject3D('sun', this.sun);
+  },
+  toVoid() { this.sky.material.map = null; this.sky.material.color.set(0x010203); this.sky.material.needsUpdate = true; this.sun.visible = false; }
+});
+
+/* ====== Suelo: pasto → circuito ====== */
+AFRAME.registerComponent('grass-ground', {
+  init() {
+    const S = 512, c = document.createElement('canvas'); c.width = c.height = S;
+    const x = c.getContext('2d'); x.fillStyle = '#3f6e2b'; x.fillRect(0,0,S,S);
+    const cols = ['#2f5a22','#4a8434','#5f9a3a','#78a640','#a2ae4a'];
+    for (let i = 0; i < 14000; i++) {
+      const px = Math.random()*S, py = Math.random()*S, h = 4 + Math.random()*9;
+      x.strokeStyle = cols[Math.floor(Math.random()*cols.length)]; x.globalAlpha = .35 + Math.random()*.5;
+      x.lineWidth = 1 + Math.random(); x.beginPath(); x.moveTo(px,py); x.lineTo(px + (Math.random()-.5)*4, py-h); x.stroke();
+    }
+    this.mesh = new T.Mesh(new T.PlaneGeometry(800,800), new T.MeshStandardMaterial({ map: this.tex(c, 140), roughness: 1 }));
+    this.mesh.rotation.x = -Math.PI/2; this.el.setObject3D('mesh', this.mesh);
+  },
+  tex(c, rep) { const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 8; t.colorSpace = T.SRGBColorSpace; return t; },
+  toVoid() {
+    const S = 1024, c = document.createElement('canvas'); c.width = c.height = S;
+    const x = c.getContext('2d'); x.fillStyle = '#02060a'; x.fillRect(0,0,S,S); x.lineCap = 'round';
+    const pal = ['#18ff9a','#26c6ff','#0c9a66'], G = 32, d8 = [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1]];
+    for (let i = 0; i < 280; i++) {
+      let px = Math.floor(Math.random()*S/G)*G, py = Math.floor(Math.random()*S/G)*G;
+      x.strokeStyle = x.fillStyle = pal[i % 3]; x.globalAlpha = .4 + Math.random()*.55; x.lineWidth = 3;
+      x.beginPath(); x.moveTo(px,py);
+      for (let k = 0; k < 3 + Math.random()*5; k++) { const d = d8[Math.floor(Math.random()*6)], n = 1 + Math.floor(Math.random()*4);
+        px += d[0]*G*n; py += d[1]*G*n; x.lineTo(px,py); }
+      x.stroke(); x.beginPath(); x.arc(px,py,6,0,6.283); x.fill();
+    }
+    for (let i = 0; i < 14; i++) { x.globalAlpha = .8; x.strokeStyle = '#26c6ff'; x.strokeRect(Math.random()*S, Math.random()*S, 40 + Math.random()*60, 40 + Math.random()*60); }
+    const m = this.mesh.material, t = this.tex(c, 30);
+    m.map = t; m.emissiveMap = t; m.emissive.set(0xffffff); m.emissiveIntensity = .55; m.color.set(0xffffff); m.needsUpdate = true;
+  }
+});
+
+/* ====== Cables, polvo y niebla que se cierra (el vacío) ====== */
+AFRAME.registerComponent('cables', {
+  init() { this.list = []; this.on = false; },
+  grow() {
+    const rnd = (a,b) => a + Math.random()*(b-a), mat = new T.MeshStandardMaterial({ color: 0x050607, roughness: .3, metalness: .8 });
+    for (let i = 0; i < 130; i++) {
+      const kind = i % 3, a = Math.random()*6.283, r = rnd(2,17), bx = Math.cos(a)*r, bz = -2 + Math.sin(a)*r;
+      if (Math.hypot(bx, bz - FIGURE_Z) < 1.8) continue;
+      const pts = [new T.Vector3()];
+      for (let k = 0; k < 6; k++) { const p = pts[k], y = kind === 0 ? p.y + rnd(.5,1.4) : kind === 2 ? p.y - rnd(1.2,1.6) : Math.max(.05, p.y + rnd(-.15,.3));
+        pts.push(new T.Vector3(p.x + rnd(-.9,.9), y, p.z + rnd(-.9,.9))); }
+      const m = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 48, i % 7 === 0 ? rnd(.16,.3) : rnd(.04,.11), 7), mat);
+      m.position.set(bx, kind === 2 ? 9 : 0, bz); m.scale.setScalar(.001);
+      m.userData = { delay: i*.07, ph: rnd(0,6) }; this.el.object3D.add(m); this.list.push(m);
+    }
+    const N = 500; this.dust = new Float32Array(N*3);
+    for (let i = 0; i < N; i++) { this.dust[i*3] = rnd(-14,14); this.dust[i*3+1] = rnd(0,6); this.dust[i*3+2] = rnd(-16,12); }
+    this.dg = new T.BufferGeometry(); this.dg.setAttribute('position', new T.BufferAttribute(this.dust, 3));
+    this.el.object3D.add(new T.Points(this.dg, new T.PointsMaterial({ color: 0x9fffe0, size: .05, transparent: true, opacity: .55, depthWrite: false })));
+    this.t0 = this.el.sceneEl.time; this.on = true;
+  },
+  tick(t, dt) {
+    if (!this.on) return; const age = (t - this.t0)/1000;
+    this.list.forEach(m => { const k = Math.min(1, Math.max(0, (age - m.userData.delay)/3));
+      m.scale.setScalar(Math.max(.001, k)); m.rotation.z = Math.sin(t/1100 + m.userData.ph)*.06; m.rotation.x = Math.cos(t/1500 + m.userData.ph)*.06; });
+    for (let i = 0; i < this.dust.length; i += 3) this.dust[i+1] = (this.dust[i+1] + dt*.0004*(1 + (i/3)%3)) % 6;
+    this.dg.attributes.position.needsUpdate = true;
+    const fog = this.el.sceneEl.object3D.fog; if (fog) fog.far = Math.max(8, 15 - age*.08);     // la niebla se va cerrando
+    const L = $('under').getObject3D('light');
+    if (L && Math.random() < .12) { L.intensity = .2 + Math.random()*1.4; L.color.setHex(Math.random() < .25 ? 0xff1c1c : 0x18ff9a); }
+  }
+});
+
+/* ====== La silueta: figura humana hecha de luz ====== */
+const POSES = { idle: { R: [.05,-.07,-.12], L: [.05,.07,-.12] }, offer: { R: [-1.15,-.1,-.45], L: [.05,.07,-.12] }, hug: { R: [-1.2,-.55,-.5], L: [-1.2,.55,-.5] } };
+AFRAME.registerComponent('light-being', {
+  init() {
+    const g = this.g = new T.Group(); this.shells = []; this.pose = 'idle'; this.glitchUntil = 0;
+    const h = document.createElement('canvas'); h.width = h.height = 256;
+    const hx = h.getContext('2d'), r = hx.createRadialGradient(128,128,0,128,128,128);
+    r.addColorStop(0,'rgba(255,244,210,.6)'); r.addColorStop(1,'rgba(255,230,170,0)'); hx.fillStyle = r; hx.fillRect(0,0,256,256);
+    const haloTex = new T.CanvasTexture(h), sprite = () => new T.Sprite(new T.SpriteMaterial({ map: haloTex, blending: T.AdditiveBlending, depthWrite: false }));
+    // cada parte = núcleo blanco + dos capas de resplandor
+    const add = (geom, parent, sx, sy, sz, limb) => [[1,1,0xffffff],[1.28,.3,0xfff1c4],[1.7,.1,0xffc46b]].forEach(([s,o,col]) => {
+      const m = new T.Mesh(geom, new T.MeshBasicMaterial({ color: col, transparent: o < 1, opacity: o, depthWrite: false,
+        blending: o < 1 ? T.AdditiveBlending : T.NormalBlending, fog: false }));
+      m.scale.set(sx*s, limb ? sy : sy*s, sz*s); m.userData = { base: col, op: o }; parent.add(m); this.shells.push(m); });
+    const at = (o, x, y, z) => { o.position.set(x,y,z); g.add(o); return o; };
+    const cyl = (a, b, hh, drop) => { const q = new T.CylinderGeometry(a, b, hh, 16); if (drop) q.translate(0, -hh/2, 0); return q; };
+
+    const hg = this.head = at(new T.Group(), 0, 1.45, 0);
+    const hd = new T.Group(); hd.position.y = .19; hg.add(hd); add(new T.SphereGeometry(.105,24,16), hd, 1, 1.18, .95);
+    const nk = new T.Group(); nk.position.y = .04; hg.add(nk); add(cyl(.042,.05,.12), nk, 1,1,1);
+    add(cyl(.2,.15,.62), at(new T.Group(), 0, 1.12, 0), 1.15, 1, .62);          // torso
+    add(cyl(.15,.17,.2), at(new T.Group(), 0, .78, 0), 1.1, 1, .7);             // cadera
+    [-1, 1].forEach(s => add(cyl(.085,.055,.74,true), at(new T.Group(), s*.085, .74, 0), 1,1,1, true)); // piernas
+
+    const mkArm = s => { const up = at(new T.Group(), s*.25, 1.38, 0); add(cyl(.05,.04,.3,true), up, 1,1,1, true);
+      const fo = new T.Group(); fo.position.y = -.3; up.add(fo); add(cyl(.04,.032,.28,true), fo, 1,1,1, true);
+      const hand = new T.Group(); hand.position.y = -.3; fo.add(hand); add(new T.SphereGeometry(.045,14,10), hand, 1, 1.5, .6);
+      const gl = sprite(); gl.scale.setScalar(.35); hand.add(gl); return { up, fo, gl }; };
+    this.arms = { R: mkArm(-1), L: mkArm(1) };       // R = su mano derecha (a tu izquierda al verla)
+
+    const halo = sprite(); halo.scale.set(3,3,1); halo.position.y = .95; halo.material.opacity = .45; g.add(halo);
+
+    const d = document.createElement('canvas'); d.width = d.height = 32;
+    const dx = d.getContext('2d'), dr = dx.createRadialGradient(16,16,0,16,16,16);
+    dr.addColorStop(0,'rgba(255,255,255,1)'); dr.addColorStop(1,'rgba(255,240,190,0)'); dx.fillStyle = dr; dx.fillRect(0,0,32,32);
+    this.N = 140; this.seed = []; this.pos = new Float32Array(this.N*3);
+    for (let i = 0; i < this.N; i++) this.seed.push({ a: Math.random()*6.28, r: .15 + Math.random()*.5, s: .12 + Math.random()*.25, p: Math.random()*2.6 });
+    this.pg = new T.BufferGeometry(); this.pg.setAttribute('position', new T.BufferAttribute(this.pos, 3));
+    g.add(new T.Points(this.pg, new T.PointsMaterial({ map: new T.CanvasTexture(d), size: .07, transparent: true, depthWrite: false, blending: T.AdditiveBlending, color: 0xfff1c4 })));
+
+    this.el.setObject3D('being', g);
+    this.el.sceneEl.addEventListener('colapso', e => { this.glitchUntil = this.el.sceneEl.time + ((e.detail && e.detail.ms) || 2600); });
+  },
+  setPose(p) { this.pose = p; },
+  setVoid() { this.cold = true; const map = { 0xfff1c4: 0xcfffee, 0xffc46b: 0x5fffc8 }; this.shells.forEach(m => { m.userData.base = map[m.userData.base] || m.userData.base; }); },
+  tick(t, dt) {
+    const g = this.g, gl = t < this.glitchUntil, k = Math.min(1, dt/450), P = POSES[this.pose];
+    g.scale.y = 1 + Math.sin(t/1800)*.008; g.rotation.z = Math.sin(t/2600)*.008;
+    this.head.rotation.x = (this.cold ? .2 : .07) + Math.sin(t/2300)*.02; this.head.rotation.z = this.cold ? .3 + Math.sin(t/900)*.03 : Math.sin(t/3100)*.03;
+    ['R','L'].forEach(s => { const a = this.arms[s], q = P[s];
+      a.up.rotation.x += (q[0] - a.up.rotation.x)*k; a.up.rotation.z += (q[1] - a.up.rotation.z)*k; a.fo.rotation.x += (q[2] - a.fo.rotation.x)*k;
+      const on = this.pose !== 'idle' && (s === 'R' || this.pose === 'hug'); a.gl.scale.setScalar(.35 + (on ? .22 + Math.sin(t/260)*.08 : 0)); });
+    this.shells.forEach((m, i) => { if (m.userData.op < 1) m.material.opacity = m.userData.op*(.85 + Math.sin(t/900 + i)*.15);
+      m.material.color.setHex(gl ? [0xff3b6b,0x3bffd9,0xffffff][Math.floor(Math.random()*3)] : m.userData.base); });
+    g.visible = gl ? Math.random() > .25 : true; g.position.x = gl ? (Math.random()-.5)*.14 : (this.cold && Math.random() < .03 ? (Math.random()-.5)*.06 : 0);
+    for (let i = 0; i < this.N; i++) { const s = this.seed[i], y = (s.p + s.s*t/1000) % 2.6, a = s.a + t/5000, rad = s.r*(.55 + y*.3);
+      this.pos[i*3] = Math.cos(a)*rad; this.pos[i*3+1] = y; this.pos[i*3+2] = Math.sin(a)*rad; }
+    this.pg.attributes.position.needsUpdate = true;
+  }
+});
+
+/* ====== Caminar ====== */
+let walking = false, shakeUntil = 0;
+AFRAME.registerComponent('walker', {
+  init() { this.off = new T.Vector3(); },
+  tick(t, dt) {
+    const p = this.el.object3D.position, cam = this.el.sceneEl.camera, d = new T.Vector3();
+    p.sub(this.off); this.off.set(0,0,0);
+    cam.getWorldDirection(d);
+    if (walking && state === 'walk') { const w = d.clone(); w.y = 0; w.normalize(); p.addScaledVector(w, 1.6*dt/1000); }
+    const dz = p.z - FIGURE_Z, dist = Math.hypot(p.x, dz);
+    if (dist < 1.1 && dist > 0) { p.x = p.x/dist*1.1; p.z = FIGURE_Z + dz/dist*1.1; }
+    if (state === 'walk' && dist < 3.2) reachMoment();
+    const mg = t < shakeUntil ? 1 : state === 'void' ? .08 : 0; if (mg) this.off.set((Math.random()-.5)*.08*mg, (Math.random()-.5)*.05*mg, (Math.random()-.5)*.08*mg);
+    p.add(this.off); audio.listen(p, d);
+  }
+});
+
+/* ====== Audio: brisa, eco, vacío, voz y coro roto ====== */
+const audio = (() => {
+  let ctx, master, dry, rv, dl, windG, burst; const bufs = {};
+  const VOW = [[800,1150],[400,2000],[300,2300],[500,1000],[350,800]];                       // formantes a-e-i-o-u
+  const crushCurve = new Float32Array(256).map((_, i) => Math.round(((i/255)*2 - 1)*7)/7);   // bit-crush
+  const mkIR = (sec, k) => { const n = ctx.sampleRate*sec|0, b = ctx.createBuffer(2, n, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random()*2-1)*Math.pow(1 - i/n, k); } return b; };
+  const gain = (v, to) => { const g = ctx.createGain(); g.gain.value = v; if (to) g.connect(to); return g; };
+  const pan3d = (x, y, z) => { const pn = ctx.createPanner(); pn.panningModel = 'HRTF'; pn.refDistance = 2;
+    pn.positionX ? (pn.positionX.value = x, pn.positionY.value = y, pn.positionZ.value = z) : pn.setPosition(x, y, z); return pn; };
+  const send = (n, wet) => { n.connect(dry); n.connect(gain(wet*1.4, rv)); n.connect(gain(wet, dl)); };      // seco + reverb + eco
+  const babble = (out, sec) => {                                                                // "voz" sintética sin palabras
+    const o = ctx.createOscillator(), f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(), env = gain(0, out), t0 = ctx.currentTime, f0 = 140 + Math.random()*300;
+    o.type = 'sawtooth'; o.frequency.value = f0; [f1, f2].forEach(f => { f.type = 'bandpass'; f.Q.value = 9; o.connect(f); f.connect(env); }); o.start(t0);
+    for (let t = 0; t < sec; t += .12 + Math.random()*.3) { const v = VOW[Math.floor(Math.random()*5)], at = t0 + t;
+      f1.frequency.setTargetAtTime(v[0], at, .03); f2.frequency.setTargetAtTime(v[1], at, .03); o.frequency.setTargetAtTime(f0*(.8 + Math.random()*.6), at, .04);
+      env.gain.setTargetAtTime(1.2, at, .02); env.gain.setTargetAtTime(.02, at + .08 + Math.random()*.12, .03); }
+    o.stop(t0 + sec + .3); };
+  const frag = (vol, sec) => {                       // fragmento de voz rota: tu audio tartamudeado y desafinado, o balbuceo sintético
+    const keys = Object.keys(bufs), cr = ctx.createWaveShaper(), g = gain(vol), pn = pan3d((Math.random()-.5)*10, 1 + Math.random(), FIGURE_Z + (Math.random()-.5)*8);
+    cr.curve = crushCurve; cr.connect(g); g.connect(pn); send(pn, 1);
+    if (keys.length) { const b = bufs[keys[Math.floor(Math.random()*keys.length)]], s = ctx.createBufferSource(); s.buffer = b;
+      s.playbackRate.value = .55 + Math.random()*1.2; s.loop = Math.random() < .6; s.loopStart = Math.random()*b.duration*.6; s.loopEnd = Math.min(b.duration, s.loopStart + .08 + Math.random()*.25);
+      s.connect(cr); s.start(0, s.loopStart); s.stop(ctx.currentTime + sec); }
+    else babble(cr, sec); };
+  return {
+    start() {
+      if (ctx) return; ctx = new (window.AudioContext || window.webkitAudioContext)(); ctx.resume();
+      master = gain(.9, ctx.destination); dry = gain(1, master);
+      const conv = ctx.createConvolver(); conv.buffer = mkIR(6, 2.2); conv.connect(gain(1, master)); rv = gain(1, conv);          // reverberación larga
+      const dly = ctx.createDelay(2); dly.delayTime.value = .46; const fb = gain(.45, dly), lp = ctx.createBiquadFilter(); lp.frequency.value = 1700;
+      dly.connect(lp); lp.connect(fb); dly.connect(gain(.55, master)); dly.connect(conv); dl = gain(1, dly);                      // eco que rebota
+      const nb = ctx.createBuffer(1, ctx.sampleRate*4, ctx.sampleRate), nd = nb.getChannelData(0); let l = 0;
+      for (let i = 0; i < nd.length; i++) { l = (l + .02*(Math.random()*2-1))/1.02; nd[i] = l*3.5; }
+      const ns = ctx.createBufferSource(); ns.buffer = nb; ns.loop = true; ns.start();                                             // brisa
+      const wf = ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 520; wf.Q.value = .7;
+      windG = gain(.32); ns.connect(wf); wf.connect(windG); windG.connect(dry); windG.connect(gain(.5, rv)); windG.connect(gain(.15, dl));
+      const lfo = (f, amt, param) => { const o = ctx.createOscillator(); o.frequency.value = f; o.connect(gain(amt, param)); o.start(); };
+      lfo(.09, .14, windG.gain); lfo(.05, 220, wf.frequency);
+      burst = ctx.createBuffer(1, ctx.sampleRate*.06|0, ctx.sampleRate); const bd = burst.getChannelData(0); for (let i = 0; i < bd.length; i++) bd[i] = Math.random()*2-1;
+    },
+    async load(files) { if (!ctx) return; await Promise.all(Object.keys(files).map(async k => { try {
+      bufs[k] = await ctx.decodeAudioData(await (await fetch(files[k])).arrayBuffer()); } catch (e) { console.warn('voz no cargada:', k, e); } })); },
+    listen(p, f) { if (!ctx || !ctx.listener.positionX) return; const L = ctx.listener;
+      L.positionX.value = p.x; L.positionY.value = p.y; L.positionZ.value = p.z; L.forwardX.value = f.x; L.forwardY.value = 0; L.forwardZ.value = f.z; },
+    voice(k) { const b = bufs[k]; if (!ctx || !b) return false; const s = ctx.createBufferSource(); s.buffer = b;
+      const sh = ctx.createBiquadFilter(), pn = pan3d(0, 1.5, FIGURE_Z); sh.type = 'highshelf'; sh.frequency.value = 3500; sh.gain.value = 4;   // aire extra: voz más dulce
+      s.connect(sh); sh.connect(pn); send(pn, .9); s.start(); return true; },
+    chorus(sec) { if (ctx) for (let i = 0; i < 10; i++) setTimeout(() => frag(.35 + Math.random()*.3, sec*(.4 + Math.random()*.6)), Math.random()*sec*400); },
+    zap() { if (!ctx) return; const s = ctx.createBufferSource(); s.buffer = burst; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500 + Math.random()*5000;
+      const g = gain(.35); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .06); s.connect(f); f.connect(g); g.connect(dry); g.connect(rv); s.start(); },
+    hit() { if (!ctx) return; const o = ctx.createOscillator(), g = gain(.9, dry), t = ctx.currentTime;
+      o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(28, t + 1.2); g.gain.exponentialRampToValueAtTime(.001, t + 1.6);
+      o.connect(g); g.connect(rv); o.start(); o.stop(t + 1.7); this.zap(); this.zap(); },
+    toVoid() { if (!ctx) return; const t = ctx.currentTime; windG.gain.setTargetAtTime(.03, t, 1.2);
+      const dg = gain(0, dry); dg.connect(rv); dg.gain.setTargetAtTime(.3, t, 2);
+      const lp = ctx.createBiquadFilter(); lp.frequency.value = 170; lp.connect(dg);
+      [55, 58.3, 82.5, 116.5].forEach(f => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(); });   // zumbido disonante
+      const ti = ctx.createOscillator(); ti.frequency.value = 7200; ti.connect(gain(.012, dry)); ti.start();                                              // pitido agudo
+      (function z() { audio.zap(); setTimeout(z, 200 + Math.random()*1400); })();
+      (function w() { if (state === 'void') frag(.2, 1.2 + Math.random()*1.6); setTimeout(w, 3500 + Math.random()*5500); })(); },                     // susurros rotos
+    silence() { if (ctx) master.gain.setTargetAtTime(0, ctx.currentTime, 1.2); }
+  };
+})();
+
+/* ====== Interfaz ====== */
+const ella = () => $('ella').components['light-being'];
+function speak(t) {
+  const s = window.speechSynthesis; if (!s) return; s.cancel(); const u = new SpeechSynthesisUtterance(t);
+  const v = s.getVoices().filter(x => /^es/i.test(x.lang)), pick = v.find(x => /paulina|m[oó]nica|sabina|helena|elena|luciana|marisol|google espa/i.test(x.name)) || v[0];
+  if (pick) { u.voice = pick; u.lang = pick.lang; } else u.lang = 'es-ES'; u.pitch = 1.5; u.rate = .85; s.speak(u);
+}
+const echoes = [$('e1'), $('e2')];
+function sub(text) {
+  const s = $('sub'); [s, ...echoes].forEach(e => e.classList.remove('on')); if (!text) return;
+  setTimeout(() => { s.textContent = text; s.classList.add('on'); }, 350);
+  echoes.forEach((e, i) => setTimeout(() => { e.textContent = text; e.classList.add('on'); }, 850 + i*550));   // eco visual del subtítulo
+  if (audio.voice(text)) return;
+  if (USE_TTS) speak(text);
+}
+async function openCam() {
+  const cam = $('cam'); cam.srcObject = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+  cam.play().catch(() => {});
+}
+function choices(list) {
+  const box = $('choices'); box.innerHTML = '';
+  list.forEach(([label, fn]) => { const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = label;
+    b.onclick = () => { box.innerHTML = ''; fn(); }; box.appendChild(b); });
+}
+window.addEventListener('error', e => { const d = $('err'); d.hidden = false; d.textContent = 'Error: ' + e.message; });
+
+/* ====== Guion ====== */
+$('enter').onclick = async () => {
+  audio.start(); try { await openCam(); } catch (e) { console.warn('cámara no disponible', e); } $('intro').classList.add('off'); state = 'walk';
+  if (matchMedia('(pointer: coarse)').matches) { $('go').classList.add('show'); $('hint').textContent = 'Mantén “Avanzar” · arrastra para mirar'; }
+  await Promise.race([audio.load(VOICE_FILES), wait(3500)]); await wait(1200); sub('Qué bueno que viniste.'); $('hint').classList.add('on');
+  await wait(5500); sub('Ven. Acércate.'); await wait(6000); $('hint').classList.remove('on');
+};
+$('go').addEventListener('pointerdown', () => walking = true);
+['pointerup','pointerleave','pointercancel'].forEach(e => $('go').addEventListener(e, () => walking = false));
+
+function reachMoment() {
+  state = 'reach'; walking = false; $('go').classList.remove('show'); $('hint').classList.remove('on');
+  ella().setPose('offer'); sub('¿Me das la mano?');
+  setTimeout(() => choices([['Tomar su mano', takeHand]]), 2500);
+}
+
+async function takeHand() {
+  state = 'film'; sub(''); audio.hit(); audio.chorus(3.2); document.body.classList.add('glitch');
+  sc().emit('colapso', { ms: 2800 }); shakeUntil = sc().time + 2800;
+  if (VIDEO_SRC) {                       // con corto: glitch → video → vacío
+    await wait(900); document.body.classList.remove('glitch'); const f = $('film'), v = $('vid'); f.classList.add('on');
+    v.src = VIDEO_SRC; v.hidden = false; try { await v.play(); } catch (e) {}
+    await new Promise(r => { v.onended = r; v.onerror = r; }); v.hidden = true;
+    toVoid(); await wait(700); f.classList.add('fade'); await wait(2600); f.classList.remove('on', 'fade');
+  } else {                               // sin corto: glitch + temblor → vacío directo
+    await wait(1100); toVoid(); await wait(1700); document.body.classList.remove('glitch');
+  }
+  afterFilm();
+}
+
+function toVoid() {
+  state = 'void';
+  document.querySelector('[dreamcore-sky]').components['dreamcore-sky'].toVoid();
+  document.querySelector('[grass-ground]').components['grass-ground'].toVoid();
+  document.querySelector('[cables]').components['cables'].grow();
+  sc().setAttribute('fog', { type: 'linear', color: '#010203', near: .5, far: 15 });
+  $('amb').setAttribute('light', { color: '#0a1a2a', intensity: .1 });
+  $('dir').setAttribute('light', { intensity: 0 });
+  $('warm').setAttribute('light', { color: '#9fffe0', intensity: .6 });
+  $('under').setAttribute('light', { intensity: 1 });
+  ella().setPose('idle'); ella().setVoid(); audio.toVoid();
+  setInterval(() => { if (state === 'void') sc().emit('colapso', { ms: 150 + Math.random()*350 }); }, 3000);
+}
+
+async function afterFilm() {
+  await wait(6000); sub('¿Tienes miedo?'); await wait(2500);
+  choices([['Sí', () => answer('No tienes por qué. Yo no me voy a ir.')], ['No', () => answer('Lo sé. Estás conmigo.')]]);
+}
+async function answer(line) { sub(line); await wait(6500); offerHug(); }
+async function offerHug() {
+  ella().setPose('hug'); sub('¿Me dejas abrazarte?'); await wait(2500);
+  choices([['Abrazar', hug], ['Todavía no', async () => { ella().setPose('idle'); sub('Puedo esperar. Siempre puedo esperar.'); await wait(7000); offerHug(); }]]);
+}
+
+async function hug() {
+  state = 'hug'; sub(''); $('flash').classList.add('on'); await wait(1400); audio.silence();
+  const cam = $('cam');
+  try {
+    if (!cam.srcObject) await openCam();
+    await cam.play(); cam.classList.add('on'); $('glow').classList.add('on');
+  } catch (e) { sub('No pudimos abrir la cámara. Revisa el permiso del navegador y recarga.'); }
+  sc().pause(); $('flash').classList.remove('on');
+  await wait(20000); $('again').classList.add('show');
+}
+$('again').onclick = () => location.reload();
+</script>
